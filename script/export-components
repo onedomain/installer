@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# A script to export Flynn components to a TUF repository.
+#
+# PREREQUISITES:
+#
+# - Install go-tuf
+#   go get github.com/flynn/go-tuf/cmd/tuf
+#
+# - Set the TUF passphrases
+#   export TUF_TARGETS_PASSPHRASE=xxxxxx
+#   export TUF_SNAPSHOT_PASSPHRASE=xxxxxx
+#   export TUF_TIMESTAMP_PASSPHRASE=xxxxxx
+
+set -eo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "${ROOT}/script/lib/ui.sh"
+
+usage() {
+  cat <<USAGE >&2
+usage: $0 [options] TUF_DIR
+
+OPTIONS:
+  -h, --help      Show this message
+USAGE
+}
+
+main() {
+  while true; do
+    case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  if [[ $# -ne 1 ]]; then
+    usage
+    exit 1
+  fi
+
+  local tuf_dir=$1
+  if [[ ! -d "${tuf_dir}" ]]; then
+    fail "No such directory: ${tuf_dir}"
+  fi
+
+  local version="$("${ROOT}/host/bin/flynn-host" version)"
+  if [[ -z "${version}" ]]; then
+    fail "unable to determine version"
+  fi
+  info "exporting components with version ${version}"
+
+  cd "${tuf_dir}"
+  tuf clean
+
+  # trace commands from here on out
+  set -x
+
+  # add the flynn-host binary at the top level so it can be found by the install script
+  cp "${ROOT}/host/bin/flynn-host.gz" "staged/targets/flynn-host.gz"
+
+  # add binaries and config in a versioned directory so that flynn-host
+  # can download them using a specific version
+  mkdir -p "staged/targets/${version}"
+  cp "${ROOT}/host/bin/flynn-host.gz"                      "staged/targets/${version}/flynn-host.gz"
+  gzip -9 --stdout "${ROOT}/cli/bin/flynn-linux-amd64"   > "staged/targets/${version}/flynn-linux-amd64.gz"
+  gzip -9 --stdout "${ROOT}/host/bin/flynn-init"         > "staged/targets/${version}/flynn-init.gz"
+  gzip -9 --stdout "${ROOT}/host/upstart.conf"           > "staged/targets/${version}/upstart.conf.gz"
+  gzip -9 --stdout "${ROOT}/bootstrap/bin/manifest.json" > "staged/targets/${version}/bootstrap-manifest.json.gz"
+  gzip -9 --stdout "${ROOT}/images.json"                 > "staged/targets/${version}/images.json.gz"
+
+  for f in ${ROOT}/cli/bin/flynn-{linux-amd64,linux-386,darwin-amd64,freebsd-amd64,windows-amd64,windows-386}; do
+    local name="$(basename "${f}").gz"
+    gzip -9 --stdout "${f}" > "staged/targets/${name}"
+  done
+  tuf add --custom="{\"version\": \"${version}\"}"
+
+  "${ROOT}/util/release/flynn-release" export "${ROOT}/images.json" "staged/targets/${version}"
+  tuf add
+
+  tuf snapshot
+  tuf timestamp
+  tuf commit
+}
+
+main $@

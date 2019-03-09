@@ -1,0 +1,22 @@
+p.more-btn {
+  text-align: center
+}
+
+.label {
+  display: inline-block;
+  padding: 9px 12px;
+}
+
+.label-reason {
+  background-color: #611BBD;
+}
+
+.modal label {
+  width: 100%;
+  padding: 10px 20px;
+}
+
+#logs {
+  color: #D4D5C0;
+  background-color: #1F1F1F;
+}

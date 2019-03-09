@@ -1,0 +1,160 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/assets/style.css">
+    <title>Flynn CI Builds</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Flynn CI Builds</h1>
+
+      <div class="alert alert-danger alert-dismissible hide" role="alert">
+        <button type="button" class="close" data-dismiss="alert">
+          <span aria-hidden="true">&times;</span>
+          <span class="sr-only">Close</span>
+        </button>
+
+        <p></p>
+      </div>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Commit</th>
+            <th>Description</th>
+            <th>Branch</th>
+            <th>Created</th>
+            <th>Duration</th>
+            <th>State</th>
+            <th>Reason</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+        </tbody>
+      </table>
+
+      <p class="more-btn">
+        <a href="javascript:void()" class="btn btn-large btn-primary" onclick="fetch()">More >>></a>
+      </p>
+    </div>
+
+    <script type="text/template" id="row-template">
+      <tr>
+        <td>
+          <a href="/builds/<%= id %>"><%= commit.substring(0, 7) %></a>
+        </td>
+        <td><%= description %></td>
+        <td><%= branch %></td>
+        <td><%= created_at.fromNow() %> (<%= created_at.format("lll") %>)</td>
+        <td>
+          <% if(duration > 0) { %>
+            <%= duration_formatted %>
+          <% } else { %>
+            N/A
+          <% } %>
+        </td>
+        <td>
+          <% if(state == "failure" && failures != null) { %>
+            <a href="javascript:void(0)" class="btn btn-danger" onclick="showFailureModal('<%= id %>')">
+              <%= failures.length %> failure(s)
+            </a>
+          <% } else { %>
+            <span class="label <%= label_class %>">
+              <%= state %>
+            </span>
+          <% } %>
+        </td>
+        <td>
+          <% if(issue_link) { %>
+            <a href="<%= issue_link %>" class="btn btn-warning" target="_blank">
+              #<%= issue_link.split("/").pop() %>
+            </a>
+          <% } else if(reason) { %>
+            <span class="label label-reason"><%= reason %></span>
+          <% } else if(state == "failure") { %>
+            <a href="javascript:void(0)" class="btn btn-default" onclick="showExplainModal('<%= id %>')">Explain</a>
+          <% } %>
+        </td>
+        <td>
+          <form action="/builds/<%= id %>/restart" method="POST">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-refresh"></i>
+            </button>
+          </form>
+        </td>
+      </tr>
+    </script>
+
+    <script type="text/template" id="explain-template">
+      <div class="modal fade">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form action="/builds/<%= id %>/explain" method="POST">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Explain Failure of <%= id %></h4>
+              </div>
+
+              <div class="modal-body">
+                <div class="radio">
+                  <label>
+                    <input type="radio" name="reason" value="expected">
+                    Expected build failure
+                  </label>
+                </div>
+
+                <div class="radio">
+                  <label>
+                    <input type="radio" name="reason" value="issue">
+                    Known GitHub issue
+                    <input type="text" name="issue-link" class="form-control" placeholder="GitHub issue link" width="100%">
+                  </label>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </script>
+
+    <script type="text/template" id="failure-template">
+      <div class="modal fade">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              <h4 class="modal-title"><%= failures.length %> build failure(s) for <%= id %></h4>
+            </div>
+
+            <div class="modal-body">
+              <ol>
+                <% for(i in failures) { %>
+                  <li><%= failures[i] %></li>
+                <% } %>
+              </ol>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </script>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.1/moment.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="/assets/builds.js"></script>
+  </body>
+</html>
